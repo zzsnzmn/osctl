@@ -29,10 +29,12 @@ import (
 	"github.com/mum4k/termdash/terminal/tcell"
 	"github.com/mum4k/termdash/terminal/terminalapi"
 	"github.com/mum4k/termdash/widgets/button"
+	"github.com/mum4k/termdash/widgets/text"
 	"github.com/mum4k/termdash/widgets/segmentdisplay"
 	"github.com/hypebeast/go-osc/osc"
 
 	"git.goth.lol/rzsz/osctl/internal/encoder"
+	"git.goth.lol/rzsz/osctl/internal/screen"
 )
 
 // playType indicates how to play a encoder.
@@ -84,6 +86,28 @@ func playencoder(ctx context.Context, d *encoder.Encoder, start, step int, delay
 	}
 }
 
+// writeLines writes a line of text to the text widget every delay.
+// Exits when the context expires.
+func drawScreen(ctx context.Context, t *text.Text, delay time.Duration) {
+	ticker := time.NewTicker(delay)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			s := screen.DisplayBuffer()
+			if s == "" {
+				continue
+			}
+			if err := t.Write(s); err != nil {
+				panic(err)
+			}
+
+		case <-ctx.Done():
+			return
+		}
+	}
+}
 
 
 
@@ -203,6 +227,16 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	// TODO: text widget here... write l ines not a function yet
+	//go writeLines(ctx, rolled, 1*time.Second)
+
+	nornsScreen, err := text.New()
+	if err != nil {
+		panic(err)
+	}
+	go drawScreen(ctx, nornsScreen, 100*time.Millisecond)
+
 
 	c, err := container.New(
 		t,
