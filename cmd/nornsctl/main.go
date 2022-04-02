@@ -22,16 +22,17 @@ import (
 	//"log"
 	"fmt"
 
+	"github.com/hypebeast/go-osc/osc"
 	"github.com/mum4k/termdash"
+	"github.com/mum4k/termdash/align"
 	"github.com/mum4k/termdash/cell"
 	"github.com/mum4k/termdash/container"
 	"github.com/mum4k/termdash/linestyle"
 	"github.com/mum4k/termdash/terminal/tcell"
 	"github.com/mum4k/termdash/terminal/terminalapi"
 	"github.com/mum4k/termdash/widgets/button"
-	"github.com/mum4k/termdash/widgets/text"
 	"github.com/mum4k/termdash/widgets/segmentdisplay"
-	"github.com/hypebeast/go-osc/osc"
+	"github.com/mum4k/termdash/widgets/text"
 
 	"git.goth.lol/rzsz/osctl/internal/encoder"
 	"git.goth.lol/rzsz/osctl/internal/screen"
@@ -45,9 +46,9 @@ const (
 	playTypeAbsolute
 )
 
-// playencoder continuously changes the displayed percent value on the encoder by the
+// drawEncoder continuously changes the displayed percent value on the encoder by the
 // step once every delay. Exits when the context expires.
-func playencoder(ctx context.Context, d *encoder.Encoder, start, step int, delay time.Duration, pt playType) {
+func drawEncoder(ctx context.Context, d *encoder.Encoder, start, step int, delay time.Duration, pt playType) {
 	progress := start
 	mult := 1
 
@@ -99,7 +100,7 @@ func drawScreen(ctx context.Context, t *text.Text, delay time.Duration) {
 			if s == "" {
 				continue
 			}
-			if err := t.Write(s); err != nil {
+			if err := t.Write(s, text.WriteReplace()); err != nil {
 				panic(err)
 			}
 
@@ -108,8 +109,6 @@ func drawScreen(ctx context.Context, t *text.Text, delay time.Duration) {
 		}
 	}
 }
-
-
 
 func main() {
 	t, err := tcell.New()
@@ -124,7 +123,8 @@ func main() {
 	// TODO: read arg here to set osc msg route
 
 	oscPort := 10111
-	oscAddr := "localhost"
+	//oscAddr := "localhost"
+	oscAddr := "68.183.203.181"
 	ctx, cancel := context.WithCancel(context.Background())
 	encoder1, err := encoder.New(
 		encoder.CellOpts(cell.FgColor(cell.ColorGreen)),
@@ -135,7 +135,7 @@ func main() {
 		panic(err)
 	}
 	// TODO: rename redraw
-	go playencoder(ctx, encoder1, 25, 1, 60*time.Millisecond, playTypePercent)
+	go drawEncoder(ctx, encoder1, 25, 1, 60*time.Millisecond, playTypePercent)
 
 	encoder2, err := encoder.New(
 		encoder.CellOpts(cell.FgColor(cell.ColorGreen)),
@@ -147,7 +147,7 @@ func main() {
 		panic(err)
 	}
 	// TODO: rename redraw
-	go playencoder(ctx, encoder2, 25, 1, 60*time.Millisecond, playTypePercent)
+	go drawEncoder(ctx, encoder2, 25, 1, 60*time.Millisecond, playTypePercent)
 
 	encoder3, err := encoder.New(
 		encoder.CellOpts(cell.FgColor(cell.ColorGreen)),
@@ -158,8 +158,7 @@ func main() {
 		panic(err)
 	}
 
-	// TODO: rename redraw
-	go playencoder(ctx, encoder3, 25, 1, 60*time.Millisecond, playTypePercent)
+	go drawEncoder(ctx, encoder3, 25, 1, 60*time.Millisecond, playTypePercent)
 
 	display, err := segmentdisplay.New()
 	if err != nil {
@@ -171,6 +170,8 @@ func main() {
 		2: 0,
 		3: 0,
 	}
+	// TODO: button release requires fast double clicks
+	// this should send 1 on press and 0 on relese
 	k1, err := button.New("K1", func() error {
 		keyStates[1] = 1 - keyStates[1]
 		client := osc.NewClient(oscAddr, oscPort)
@@ -228,57 +229,52 @@ func main() {
 		panic(err)
 	}
 
-	// TODO: text widget here... write l ines not a function yet
-	//go writeLines(ctx, rolled, 1*time.Second)
-
 	nornsScreen, err := text.New()
 	if err != nil {
 		panic(err)
 	}
 	go drawScreen(ctx, nornsScreen, 100*time.Millisecond)
 
-
 	c, err := container.New(
 		t,
 		container.Border(linestyle.Light),
 		container.BorderTitle("PRESS Q TO QUIT"),
-		container.SplitVertical(
-			container.Left(
-				container.SplitHorizontal(
-					container.Top(container.PlaceWidget(encoder1)),
-					container.Bottom(container.PlaceWidget(k1)),
-				),
+		container.SplitHorizontal(
+			container.Top(
+				container.PlaceWidget(nornsScreen),
+				container.AlignHorizontal(align.HorizontalCenter),
+				container.AlignVertical(align.VerticalMiddle),
 			),
-			container.Right(
+			container.Bottom(
+
 				container.SplitVertical(
 					container.Left(
 						container.SplitHorizontal(
-							container.Top(container.PlaceWidget(encoder2)),
-							container.Bottom(container.PlaceWidget(k2)),
+							container.Top(container.PlaceWidget(encoder1)),
+							container.Bottom(container.PlaceWidget(k1)),
 						),
 					),
 					container.Right(
-						container.SplitHorizontal(
-							container.Top(container.PlaceWidget(encoder3)),
-							container.Bottom(container.PlaceWidget(k3)),
+						container.SplitVertical(
+							container.Left(
+								container.SplitHorizontal(
+									container.Top(container.PlaceWidget(encoder2)),
+									container.Bottom(container.PlaceWidget(k2)),
+								),
+							),
+							container.Right(
+								container.SplitHorizontal(
+									container.Top(container.PlaceWidget(encoder3)),
+									container.Bottom(container.PlaceWidget(k3)),
+								),
+							),
 						),
 					),
+					container.SplitPercent(33),
 				),
 			),
-			container.SplitPercent(33),
 		),
-		//container.PlaceWidget(green),
-		//container.SplitVertical(
-			//container.Left(
-				//container.SplitVertical(
-					//container.Left(container.PlaceWidget(green)),
-					//container.Right(container.PlaceWidget(green)),
-				//),
-			//),
-			//container.Right(
-					//container.Left(container.PlaceWidget(yellow)),
-			//),
-		//),
+
 	)
 	if err != nil {
 		panic(err)
