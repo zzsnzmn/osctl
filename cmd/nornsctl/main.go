@@ -34,8 +34,8 @@ import (
 	"github.com/mum4k/termdash/widgets/segmentdisplay"
 	"github.com/mum4k/termdash/widgets/text"
 
-	"git.goth.lol/rzsz/osctl/internal/encoder"
-	"git.goth.lol/rzsz/osctl/internal/screen"
+	"github.com/zzsnzmn/osctl/internal/encoder"
+	//"github.com/zzsnzmn/osctl/internal/screen"
 )
 
 // playType indicates how to play a encoder.
@@ -87,7 +87,7 @@ func drawEncoder(ctx context.Context, d *encoder.Encoder, start, step int, delay
 	}
 }
 
-// writeLines writes a line of text to the text widget every delay.
+// drawScreen writes lines of text to the text widget every delay.
 // Exits when the context expires.
 func drawScreen(ctx context.Context, t *text.Text, delay time.Duration) {
 	ticker := time.NewTicker(delay)
@@ -96,7 +96,8 @@ func drawScreen(ctx context.Context, t *text.Text, delay time.Duration) {
 	for {
 		select {
 		case <-ticker.C:
-			s := screen.DisplayBuffer()
+			//s := screen.DisplayBuffer()
+			s := ""
 			if s == "" {
 				continue
 			}

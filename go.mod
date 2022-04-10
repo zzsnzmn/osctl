@@ -1,4 +1,4 @@
-module git.goth.lol/rzsz/osctl
+module github.com/zzsnzmn/osctl
 
 go 1.18
 
