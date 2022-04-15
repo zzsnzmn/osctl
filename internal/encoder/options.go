@@ -39,7 +39,7 @@ func (o option) set(opts *options) {
 
 // options holds the provided options.
 type options struct {
-	centerPercent int
+	centerPercent    int
 	hideTextProgress bool
 
 	textCellOpts []cell.Option
@@ -60,9 +60,8 @@ type options struct {
 	upperBound int
 
 	oscRoute string
-	oscAddr string
-	oscPort int
-
+	oscAddr  string
+	oscPort  int
 }
 
 // validate validates the provided options.
@@ -79,7 +78,6 @@ func (o *options) validate() error {
 		return fmt.Errorf("invalid osc route %s", o.oscRoute)
 	}
 
-
 	return nil
 }
 
@@ -87,22 +85,22 @@ func (o *options) validate() error {
 func newOptions() *options {
 	return &options{
 		centerPercent: DefaultCenterPercent,
-		startAngle:       DefaultStartAngle,
-		direction:        -1,
+		startAngle:    DefaultStartAngle,
+		direction:     -1,
 		textCellOpts: []cell.Option{
 			cell.FgColor(cell.ColorDefault),
 			cell.BgColor(cell.ColorDefault),
 		},
 		labelAlign: DefaultLabelAlign,
-		oscAddr: "localhost", // make this configured...
-		oscPort: 10111,
-		oscRoute: "",
+		oscAddr:    "localhost", // make this configured...
+		oscPort:    10111,
+		oscRoute:   "",
 	}
 }
 
-// DefaultHolePercent is the default value for the HolePercent
+// DefaultCenterPercent is the default value for the HolePercent
 // option.
-const DefaultCenterPercent = 15
+const DefaultCenterPercent = 35
 
 // HolePercent sets the size of the "hole" inside the encoder as a
 // percentage of the encoder's radius.

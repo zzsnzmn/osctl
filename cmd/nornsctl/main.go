@@ -43,7 +43,6 @@ type playType int
 
 const (
 	playTypePercent playType = iota
-	playTypeAbsolute
 )
 
 // drawEncoder continuously changes the displayed percent value on the encoder by the
@@ -57,16 +56,6 @@ func drawEncoder(ctx context.Context, d *encoder.Encoder, start, step int, delay
 	for {
 		select {
 		case <-ticker.C:
-			switch pt {
-			case playTypePercent:
-				if err := d.Percent(progress); err != nil {
-					panic(err)
-				}
-			case playTypeAbsolute:
-				if err := d.Absolute(progress, 100); err != nil {
-					panic(err)
-				}
-			}
 
 			progress += step * mult
 			if progress > 100 || 100-progress < step {
@@ -79,6 +68,9 @@ func drawEncoder(ctx context.Context, d *encoder.Encoder, start, step int, delay
 				mult = -1
 			} else if progress == 0 {
 				mult = 1
+			}
+			if err := d.Percent(progress); err != nil {
+				panic(err)
 			}
 
 		case <-ctx.Done():
@@ -96,6 +88,7 @@ func drawScreen(ctx context.Context, t *text.Text, delay time.Duration) {
 	for {
 		select {
 		case <-ticker.C:
+			// TODO: handle screen calls
 			//s := screen.DisplayBuffer()
 			s := ""
 			if s == "" {
@@ -275,7 +268,6 @@ func main() {
 				),
 			),
 		),
-
 	)
 	if err != nil {
 		panic(err)

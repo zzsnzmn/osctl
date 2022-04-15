@@ -29,7 +29,7 @@ import (
 func startEndAngles(current, total, startAngle, direction int) (start, end int) {
 	const fullCircle = 360
 	if total == 0 {
-		return startAngle, startAngle
+		return startAngle, startAngle + 1
 	}
 
 	mult := float64(current) / float64(total)

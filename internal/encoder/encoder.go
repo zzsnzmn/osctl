@@ -23,6 +23,7 @@ import (
 	"math"
 	"sync"
 
+	"github.com/hypebeast/go-osc/osc"
 	"github.com/mum4k/termdash/align"
 	"github.com/mum4k/termdash/mouse"
 	"github.com/mum4k/termdash/private/alignfor"
@@ -33,7 +34,6 @@ import (
 	"github.com/mum4k/termdash/private/runewidth"
 	"github.com/mum4k/termdash/terminal/terminalapi"
 	"github.com/mum4k/termdash/widgetapi"
-	"github.com/hypebeast/go-osc/osc"
 )
 
 // progressType indicates how was the current progress provided by the caller.
@@ -49,13 +49,11 @@ func (pt progressType) String() string {
 
 // progressTypeNames maps progressType values to human readable names.
 var progressTypeNames = map[progressType]string{
-	progressTypePercent:  "progressTypePercent",
-	progressTypeAbsolute: "progressTypeAbsolute",
+	progressTypePercent: "progressTypePercent",
 }
 
 const (
 	progressTypePercent = iota
-	progressTypeAbsolute
 )
 
 // Encoder displays the progress of an operation by filling a partial circle and
@@ -72,14 +70,16 @@ type Encoder struct {
 	// For progressTypePercent, this is 100, for progressTypeAbsolute this is
 	// the total provided by the caller.
 	total int
+	// angle is the value that represents the angle in radians (-360, 360)
+	angle int
 	// mu protects the Encoder.
 	mu sync.Mutex
 
 	// opts are the provided options.
 	opts *options
 
-	oscPort int
-	oscAddr string
+	oscPort  int
+	oscAddr  string
 	oscRoute string
 }
 
@@ -94,41 +94,17 @@ func New(opts ...Option) (*Encoder, error) {
 	}
 	return &Encoder{
 		oscRoute: opt.oscRoute,
-		oscPort: opt.oscPort,
-		oscAddr: opt.oscAddr,
-		opts: opt,
+		oscPort:  opt.oscPort,
+		oscAddr:  opt.oscAddr,
+		angle:    opt.startAngle,
+		opts:     opt,
 	}, nil
-}
-
-// Absolute sets the progress in absolute numbers, e.g. 7 out of 10.
-// The total amount must be a non-zero positive integer. The done amount must
-// be a zero or a positive integer such that done <= total.
-// Provided options override values set when New() was called.
-func (d *Encoder) Absolute(done, total int, opts ...Option) error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
-	//if done < 0 || total < 1 || done > total {
-		//return fmt.Errorf("invalid progress, done(%d) must be <= total(%d), done must be zero or positive "+
-			//"and total must be a non-zero positive number", done, total)
-	//}
-
-	//for _, opt := range opts {
-		//opt.set(d.opts)
-	//}
-	//if err := d.opts.validate(); err != nil {
-		//return err
-	//}
-
-	d.pt = progressTypeAbsolute
-	//d.current = done
-	//d.total = total
-	return nil
 }
 
 // Percent sets the current progress in percentage.
 // The provided value must be between 0 and 100.
 // Provided options override values set when New() was called.
+// TODO: make this degrees?:
 func (d *Encoder) Percent(p int, opts ...Option) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -145,7 +121,7 @@ func (d *Encoder) Percent(p int, opts ...Option) error {
 	}
 
 	d.pt = progressTypePercent
-	//d.current = p
+	//d.current = 6
 	d.total = 100
 	return nil
 }
@@ -155,8 +131,6 @@ func (d *Encoder) progressText() string {
 	switch d.pt {
 	case progressTypePercent:
 		return fmt.Sprintf("%d%%", d.current)
-	case progressTypeAbsolute:
-		return fmt.Sprintf("%d/%d", d.current, d.total)
 	default:
 		return ""
 	}
@@ -215,7 +189,8 @@ func (d *Encoder) Draw(cvs *canvas.Canvas, meta *widgetapi.Meta) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	startA, endA := startEndAngles(d.current, d.total, d.opts.startAngle, d.opts.direction)
+	// TODO: make this aware of the angle
+	startA, endA := startEndAngles(d.current, d.total, d.angle, d.opts.direction)
 	if startA == endA {
 		// No progress recorded, so nothing to do.
 		return nil
@@ -291,20 +266,8 @@ func (d *Encoder) Mouse(m *terminalapi.Mouse, meta *widgetapi.EventMeta) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	//if done < 0 || total < 1 || done > total {
-		//return fmt.Errorf("invalid progress, done(%d) must be <= total(%d), done must be zero or positive "+
-			//"and total must be a non-zero positive number", done, total)
-	//}
-
-	//for _, opt := range opts {
-		//opt.set(d.opts)
-	//}
-	//if err := d.opts.validate(); err != nil {
-		//return err
-	//}
 	if m.Button == mouse.ButtonWheelDown {
 		d.current = (d.current + 1) % d.total
-		// osc.msg.send
 		client := osc.NewClient(d.oscAddr, d.oscPort)
 		msg := osc.NewMessage(d.oscRoute)
 		msg.Append(int32(1))
@@ -317,10 +280,8 @@ func (d *Encoder) Mouse(m *terminalapi.Mouse, meta *widgetapi.EventMeta) error {
 		msg := osc.NewMessage(d.oscRoute)
 		msg.Append(int32(-1))
 		client.Send(msg)
-		// osc.msg.send
 	}
 
-	//d.pt = progressTypeAbsolute
 	return nil
 }
 
