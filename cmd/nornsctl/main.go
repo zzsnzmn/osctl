@@ -124,8 +124,8 @@ func main() {
 	// TODO: read arg here to set osc msg route
 
 	oscPort := 10111
-	//oscAddr := "localhost"
-	oscAddr := "68.183.203.181"
+	oscAddr := "localhost"
+	//oscAddr := "68.183.203.181"
 	ctx, cancel := context.WithCancel(context.Background())
 	encoder1, err := encoder.New(
 		encoder.CellOpts(cell.FgColor(cell.ColorGreen)),
