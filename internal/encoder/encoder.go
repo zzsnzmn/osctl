@@ -163,6 +163,11 @@ func (d *Encoder) Draw(cvs *canvas.Canvas, _ *widgetapi.Meta) error {
 	// TODO: make this aware of the angle
 	startA, endA := startEndAngles(d.current, d.total, d.angle, d.opts.direction)
 
+	if startA == endA {
+		// No progress recorded, so nothing to do.
+		return nil
+	}
+
 	var encoderAr, labelAr image.Rectangle
 	if len(d.opts.label) > 0 {
 		d, l, err := encoderAndLabel(cvs.Area())
