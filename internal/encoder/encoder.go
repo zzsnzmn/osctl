@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"log"
 	"math"
 	"sync"
 
@@ -36,39 +37,15 @@ import (
 	"github.com/mum4k/termdash/widgetapi"
 )
 
-// progressType indicates how was the current progress provided by the caller.
-type progressType int
-
-// String implements fmt.Stringer()
-func (pt progressType) String() string {
-	if n, ok := progressTypeNames[pt]; ok {
-		return n
-	}
-	return "progressTypeUnknown"
-}
-
-// progressTypeNames maps progressType values to human readable names.
-var progressTypeNames = map[progressType]string{
-	progressTypePercent: "progressTypePercent",
-}
-
-const (
-	progressTypePercent = iota
-)
-
 // Encoder displays the progress of an operation by filling a partial circle and
 // eventually by completing a full circle. The circle can have a "center" in the
 // middle, which is where the name comes from.
 //
 // Implements widgetapi.Widget. This object is thread-safe.
 type Encoder struct {
-	// pt indicates how current and total are interpreted.
-	pt progressType
 	// current is the current progress that will be drawn.
 	current int
-	// total is the value that represents completion.
-	// For progressTypePercent, this is 100, for progressTypeAbsolute this is
-	// the total provided by the caller.
+	// the total provided by the caller
 	total int
 	// angle is the value that represents the angle in radians (-360, 360)
 	angle int
@@ -120,7 +97,6 @@ func (d *Encoder) Percent(p int, opts ...Option) error {
 		return err
 	}
 
-	d.pt = progressTypePercent
 	//d.current = 6
 	d.total = 100
 	return nil
@@ -128,12 +104,7 @@ func (d *Encoder) Percent(p int, opts ...Option) error {
 
 // progressText returns the textual representation of the current progress.
 func (d *Encoder) progressText() string {
-	switch d.pt {
-	case progressTypePercent:
-		return fmt.Sprintf("%d%%", d.current)
-	default:
-		return ""
-	}
+	return fmt.Sprintf("%d%%", d.current)
 }
 
 // centerRadius calculates the radius of the "center" in the encoder.
@@ -185,16 +156,12 @@ func (d *Encoder) drawLabel(cvs *canvas.Canvas, labelAr image.Rectangle) error {
 
 // Draw draws the Encoder widget onto the canvas.
 // Implements widgetapi.Widget.Draw.
-func (d *Encoder) Draw(cvs *canvas.Canvas, meta *widgetapi.Meta) error {
+func (d *Encoder) Draw(cvs *canvas.Canvas, _ *widgetapi.Meta) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
 	// TODO: make this aware of the angle
 	startA, endA := startEndAngles(d.current, d.total, d.angle, d.opts.direction)
-	if startA == endA {
-		// No progress recorded, so nothing to do.
-		return nil
-	}
 
 	var encoderAr, labelAr image.Rectangle
 	if len(d.opts.label) > 0 {
@@ -257,29 +224,30 @@ func (d *Encoder) Draw(cvs *canvas.Canvas, meta *widgetapi.Meta) error {
 }
 
 // Keyboard input isn't supported on the Encoder widget.
-func (*Encoder) Keyboard(k *terminalapi.Keyboard, meta *widgetapi.EventMeta) error {
+func (*Encoder) Keyboard(_ *terminalapi.Keyboard, _ *widgetapi.EventMeta) error {
 	return errors.New("the Encoder widget doesn't support keyboard events")
 }
 
 // Mouse input isn't supported on the Encoder widget.
-func (d *Encoder) Mouse(m *terminalapi.Mouse, meta *widgetapi.EventMeta) error {
+func (d *Encoder) Mouse(m *terminalapi.Mouse, _ *widgetapi.EventMeta) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
+	client := osc.NewClient(d.oscAddr, d.oscPort)
+	msg := osc.NewMessage(d.oscRoute)
+
 	if m.Button == mouse.ButtonWheelDown {
 		d.current = (d.current + 1) % d.total
-		client := osc.NewClient(d.oscAddr, d.oscPort)
-		msg := osc.NewMessage(d.oscRoute)
 		msg.Append(int32(1))
-		client.Send(msg)
-
 	}
 	if m.Button == mouse.ButtonWheelUp {
 		d.current = (d.current - 1) % d.total
-		client := osc.NewClient(d.oscAddr, d.oscPort)
-		msg := osc.NewMessage(d.oscRoute)
 		msg.Append(int32(-1))
-		client.Send(msg)
+	}
+
+	err := client.Send(msg)
+	if err != nil {
+		log.Printf("error sending osc message")
 	}
 
 	return nil

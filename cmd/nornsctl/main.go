@@ -18,9 +18,9 @@ package main
 
 import (
 	"context"
-	"time"
-	//"log"
 	"fmt"
+	"log"
+	"time"
 
 	"github.com/hypebeast/go-osc/osc"
 	"github.com/mum4k/termdash"
@@ -38,16 +38,9 @@ import (
 	//"github.com/zzsnzmn/osctl/internal/screen"
 )
 
-// playType indicates how to play a encoder.
-type playType int
-
-const (
-	playTypePercent playType = iota
-)
-
 // drawEncoder continuously changes the displayed percent value on the encoder by the
 // step once every delay. Exits when the context expires.
-func drawEncoder(ctx context.Context, d *encoder.Encoder, start, step int, delay time.Duration, pt playType) {
+func drawEncoder(ctx context.Context, d *encoder.Encoder, start, step int, delay time.Duration) {
 	progress := start
 	mult := 1
 
@@ -129,7 +122,7 @@ func main() {
 		panic(err)
 	}
 	// TODO: rename redraw
-	go drawEncoder(ctx, encoder1, 25, 1, 60*time.Millisecond, playTypePercent)
+	go drawEncoder(ctx, encoder1, 25, 1, 60*time.Millisecond)
 
 	encoder2, err := encoder.New(
 		encoder.CellOpts(cell.FgColor(cell.ColorGreen)),
@@ -141,7 +134,7 @@ func main() {
 		panic(err)
 	}
 	// TODO: rename redraw
-	go drawEncoder(ctx, encoder2, 25, 1, 60*time.Millisecond, playTypePercent)
+	go drawEncoder(ctx, encoder2, 25, 1, 60*time.Millisecond)
 
 	encoder3, err := encoder.New(
 		encoder.CellOpts(cell.FgColor(cell.ColorGreen)),
@@ -152,7 +145,7 @@ func main() {
 		panic(err)
 	}
 
-	go drawEncoder(ctx, encoder3, 25, 1, 60*time.Millisecond, playTypePercent)
+	go drawEncoder(ctx, encoder3, 25, 1, 60*time.Millisecond)
 
 	display, err := segmentdisplay.New()
 	if err != nil {
@@ -171,8 +164,10 @@ func main() {
 		client := osc.NewClient(oscAddr, oscPort)
 		msg := osc.NewMessage("/remote/key/1")
 		msg.Append(int32(keyStates[1]))
-		client.Send(msg)
-
+		err := client.Send(msg)
+		if err != nil {
+			log.Printf("error sending osc message: %+v", msg)
+		}
 		return display.Write([]*segmentdisplay.TextChunk{
 			segmentdisplay.NewChunk(fmt.Sprintf("%d", keyStates[1])),
 		})
@@ -190,7 +185,10 @@ func main() {
 		client := osc.NewClient(oscAddr, oscPort)
 		msg := osc.NewMessage("/remote/key/2")
 		msg.Append(int32(keyStates[2]))
-		client.Send(msg)
+		err := client.Send(msg)
+		if err != nil {
+			log.Printf("error sending osc msg: %+v", msg)
+		}
 
 		return display.Write([]*segmentdisplay.TextChunk{
 			segmentdisplay.NewChunk(fmt.Sprintf("%d", keyStates[2])),
@@ -209,7 +207,10 @@ func main() {
 		client := osc.NewClient(oscAddr, oscPort)
 		msg := osc.NewMessage("/remote/key/3")
 		msg.Append(int32(keyStates[3]))
-		client.Send(msg)
+		err := client.Send(msg)
+		if err != nil {
+			log.Printf("error sending osc msg: %+v", msg)
+		}
 
 		return display.Write([]*segmentdisplay.TextChunk{
 			segmentdisplay.NewChunk(fmt.Sprintf("%d", keyStates[3])),
