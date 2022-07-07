@@ -24,7 +24,6 @@ import (
 
 	"github.com/hypebeast/go-osc/osc"
 	"github.com/mum4k/termdash"
-	"github.com/mum4k/termdash/align"
 	"github.com/mum4k/termdash/cell"
 	"github.com/mum4k/termdash/container"
 	"github.com/mum4k/termdash/linestyle"
@@ -32,8 +31,6 @@ import (
 	"github.com/mum4k/termdash/terminal/terminalapi"
 	"github.com/mum4k/termdash/widgets/button"
 	"github.com/mum4k/termdash/widgets/segmentdisplay"
-	"github.com/mum4k/termdash/widgets/text"
-
 	"github.com/zzsnzmn/osctl/internal/encoder"
 	//"github.com/zzsnzmn/osctl/internal/screen"
 )
@@ -63,31 +60,6 @@ func drawEncoder(ctx context.Context, d *encoder.Encoder, start, step int, delay
 				mult = 1
 			}
 			if err := d.Percent(progress); err != nil {
-				panic(err)
-			}
-
-		case <-ctx.Done():
-			return
-		}
-	}
-}
-
-// drawScreen writes lines of text to the text widget every delay.
-// Exits when the context expires.
-func drawScreen(ctx context.Context, t *text.Text, delay time.Duration) {
-	ticker := time.NewTicker(delay)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			// TODO: handle screen calls
-			//s := screen.DisplayBuffer()
-			s := ""
-			if s == "" {
-				continue
-			}
-			if err := t.Write(s, text.WriteReplace()); err != nil {
 				panic(err)
 			}
 
@@ -224,50 +196,35 @@ func main() {
 		panic(err)
 	}
 
-	nornsScreen, err := text.New()
-	if err != nil {
-		panic(err)
-	}
-	go drawScreen(ctx, nornsScreen, 100*time.Millisecond)
-
 	c, err := container.New(
 		t,
 		container.Border(linestyle.Light),
 		container.BorderTitle("PRESS Q TO QUIT"),
-		container.SplitHorizontal(
-			container.Top(
-				container.PlaceWidget(nornsScreen),
-				container.AlignHorizontal(align.HorizontalCenter),
-				container.AlignVertical(align.VerticalMiddle),
-			),
-			container.Bottom(
 
+		container.SplitVertical(
+			container.Left(
+				container.SplitHorizontal(
+					container.Top(container.PlaceWidget(encoder1)),
+					container.Bottom(container.PlaceWidget(k1)),
+				),
+			),
+			container.Right(
 				container.SplitVertical(
 					container.Left(
 						container.SplitHorizontal(
-							container.Top(container.PlaceWidget(encoder1)),
-							container.Bottom(container.PlaceWidget(k1)),
+							container.Top(container.PlaceWidget(encoder2)),
+							container.Bottom(container.PlaceWidget(k2)),
 						),
 					),
 					container.Right(
-						container.SplitVertical(
-							container.Left(
-								container.SplitHorizontal(
-									container.Top(container.PlaceWidget(encoder2)),
-									container.Bottom(container.PlaceWidget(k2)),
-								),
-							),
-							container.Right(
-								container.SplitHorizontal(
-									container.Top(container.PlaceWidget(encoder3)),
-									container.Bottom(container.PlaceWidget(k3)),
-								),
-							),
+						container.SplitHorizontal(
+							container.Top(container.PlaceWidget(encoder3)),
+							container.Bottom(container.PlaceWidget(k3)),
 						),
 					),
-					container.SplitPercent(33),
 				),
 			),
+			container.SplitPercent(33),
 		),
 	)
 	if err != nil {
