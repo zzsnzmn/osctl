@@ -1,19 +1,3 @@
-// Copyright 2019 Google Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-// Binary encoderdemo displays a couple of encoder widgets.
-// Exist when 'q' is pressed.
 package main
 
 import (
@@ -32,7 +16,6 @@ import (
 	"github.com/mum4k/termdash/widgets/button"
 	"github.com/mum4k/termdash/widgets/segmentdisplay"
 	"github.com/zzsnzmn/osctl/internal/encoder"
-	//"github.com/zzsnzmn/osctl/internal/screen"
 )
 
 // drawEncoder continuously changes the displayed percent value on the encoder by the
@@ -69,6 +52,71 @@ func drawEncoder(ctx context.Context, d *encoder.Encoder, start, step int, delay
 	}
 }
 
+func enc(oscAddr string, oscRoute string, oscPort int, encoderLabel string) *encoder.Encoder {
+	e, err := encoder.New(
+		encoder.CellOpts(cell.FgColor(cell.ColorGreen)),
+		encoder.Label(encoderLabel, cell.FgColor(cell.ColorGreen)),
+		encoder.OscRoute(oscRoute, oscAddr, oscPort),
+	)
+	if err != nil {
+		panic(err)
+	}
+	return e
+}
+
+// btn creates a closure to track button press states and returns a callback function for use with the Button widget.
+func btn(oscAddr string, oscRoute string, oscPort int, encoderLabel string, display *segmentdisplay.SegmentDisplay) func() error {
+	keyState := 0
+	client := osc.NewClient(oscAddr, oscPort)
+	return func() error {
+		keyState = 1 - keyState
+		msg := osc.NewMessage(oscRoute)
+		msg.Append(int32(keyState))
+		err := client.Send(msg)
+		if err != nil {
+			log.Printf("error sending osc message: %+v", msg)
+		}
+		return display.Write([]*segmentdisplay.TextChunk{
+			segmentdisplay.NewChunk(fmt.Sprintf("%d", keyState)),
+		})
+	}
+}
+
+// newGui returns a container with an even 33% vertical split for each of the encoders and buttons provided.
+func newGui(t *tcell.Terminal, e1, e2, e3 *encoder.Encoder, k1, k2, k3 *button.Button) (*container.Container, error) {
+	return container.New(
+		t,
+		container.Border(linestyle.Light),
+		container.BorderTitle("PRESS Q TO QUIT"),
+
+		container.SplitVertical(
+			container.Left(
+				container.SplitHorizontal(
+					container.Top(container.PlaceWidget(e1)),
+					container.Bottom(container.PlaceWidget(k1)),
+				),
+			),
+			container.Right(
+				container.SplitVertical(
+					container.Left(
+						container.SplitHorizontal(
+							container.Top(container.PlaceWidget(e2)),
+							container.Bottom(container.PlaceWidget(k2)),
+						),
+					),
+					container.Right(
+						container.SplitHorizontal(
+							container.Top(container.PlaceWidget(e3)),
+							container.Bottom(container.PlaceWidget(k3)),
+						),
+					),
+				),
+			),
+			container.SplitPercent(33),
+		),
+	)
+}
+
 func main() {
 	t, err := tcell.New()
 	if err != nil {
@@ -82,151 +130,30 @@ func main() {
 	// TODO: read arg here to set osc msg route
 
 	oscPort := 10111
-	oscAddr := "localhost"
-	//oscAddr := "68.183.203.181"
+	//oscAddr := "localhost"
+	oscAddr := "192.168.86.45"
 	ctx, cancel := context.WithCancel(context.Background())
-	encoder1, err := encoder.New(
-		encoder.CellOpts(cell.FgColor(cell.ColorGreen)),
-		encoder.Label("E1", cell.FgColor(cell.ColorGreen)),
-		encoder.OscRoute("/remote/enc/1", oscAddr, 10111),
-	)
-	if err != nil {
-		panic(err)
-	}
-	// TODO: rename redraw
-	go drawEncoder(ctx, encoder1, 25, 1, 60*time.Millisecond)
+	e1 := enc(oscAddr, "/remote/enc/1", oscPort, "E1")
+	e2 := enc(oscAddr, "/remote/enc/2", oscPort, "E2")
+	e3 := enc(oscAddr, "/remote/enc/3", oscPort, "E3")
 
-	encoder2, err := encoder.New(
-		encoder.CellOpts(cell.FgColor(cell.ColorGreen)),
-		encoder.Label("E2", cell.FgColor(cell.ColorGreen)),
-		encoder.OscRoute("/remote/enc/2", oscAddr, oscPort),
-	)
-	//log.Fatal(fmt.Sprintf("%+v", encoder3))
-	if err != nil {
-		panic(err)
-	}
-	// TODO: rename redraw
-	go drawEncoder(ctx, encoder2, 25, 1, 60*time.Millisecond)
-
-	encoder3, err := encoder.New(
-		encoder.CellOpts(cell.FgColor(cell.ColorGreen)),
-		encoder.Label("E3", cell.FgColor(cell.ColorGreen)),
-		encoder.OscRoute("/remote/enc/3", oscAddr, oscPort),
-	)
-	if err != nil {
-		panic(err)
-	}
-
-	go drawEncoder(ctx, encoder3, 25, 1, 60*time.Millisecond)
+	// TODO: this is kinda messy, but handles callbacks for drawing the encoder
+	go drawEncoder(ctx, e1, 25, 1, 60*time.Millisecond)
+	go drawEncoder(ctx, e2, 25, 1, 60*time.Millisecond)
+	go drawEncoder(ctx, e3, 25, 1, 60*time.Millisecond)
 
 	display, err := segmentdisplay.New()
 	if err != nil {
 		panic(err)
 	}
 
-	keyStates := map[int]int{
-		1: 0,
-		2: 0,
-		3: 0,
-	}
 	// TODO: button release requires fast double clicks
-	// this should send 1 on press and 0 on relese
-	k1, err := button.New("K1", func() error {
-		keyStates[1] = 1 - keyStates[1]
-		client := osc.NewClient(oscAddr, oscPort)
-		msg := osc.NewMessage("/remote/key/1")
-		msg.Append(int32(keyStates[1]))
-		err := client.Send(msg)
-		if err != nil {
-			log.Printf("error sending osc message: %+v", msg)
-		}
-		return display.Write([]*segmentdisplay.TextChunk{
-			segmentdisplay.NewChunk(fmt.Sprintf("%d", keyStates[1])),
-		})
-	},
-		button.GlobalKey('1'),
-		button.WidthFor("K1"),
-	)
+	// this should send 1 on press and 0 on release, but the way that mouse clicks with with the termGUI it's
+	k1, _ := button.New("K1", btn(oscAddr, "/remote/key/1", oscPort, "K1", display))
+	k2, _ := button.New("K2", btn(oscAddr, "/remote/key/2", oscPort, "K2", display))
+	k3, _ := button.New("K3", btn(oscAddr, "/remote/key/3", oscPort, "K2", display))
 
-	if err != nil {
-		panic(err)
-	}
-
-	k2, err := button.New("K2", func() error {
-		keyStates[2] = 1 - keyStates[2]
-		client := osc.NewClient(oscAddr, oscPort)
-		msg := osc.NewMessage("/remote/key/2")
-		msg.Append(int32(keyStates[2]))
-		err := client.Send(msg)
-		if err != nil {
-			log.Printf("error sending osc msg: %+v", msg)
-		}
-
-		return display.Write([]*segmentdisplay.TextChunk{
-			segmentdisplay.NewChunk(fmt.Sprintf("%d", keyStates[2])),
-		})
-	},
-		button.GlobalKey('2'),
-		button.WidthFor("K2"),
-	)
-
-	if err != nil {
-		panic(err)
-	}
-
-	k3, err := button.New("K3", func() error {
-		keyStates[3] = 1 - keyStates[3]
-		client := osc.NewClient(oscAddr, oscPort)
-		msg := osc.NewMessage("/remote/key/3")
-		msg.Append(int32(keyStates[3]))
-		err := client.Send(msg)
-		if err != nil {
-			log.Printf("error sending osc msg: %+v", msg)
-		}
-
-		return display.Write([]*segmentdisplay.TextChunk{
-			segmentdisplay.NewChunk(fmt.Sprintf("%d", keyStates[3])),
-		})
-	},
-		button.GlobalKey('3'),
-		button.WidthFor("K3"),
-	)
-
-	if err != nil {
-		panic(err)
-	}
-
-	c, err := container.New(
-		t,
-		container.Border(linestyle.Light),
-		container.BorderTitle("PRESS Q TO QUIT"),
-
-		container.SplitVertical(
-			container.Left(
-				container.SplitHorizontal(
-					container.Top(container.PlaceWidget(encoder1)),
-					container.Bottom(container.PlaceWidget(k1)),
-				),
-			),
-			container.Right(
-				container.SplitVertical(
-					container.Left(
-						container.SplitHorizontal(
-							container.Top(container.PlaceWidget(encoder2)),
-							container.Bottom(container.PlaceWidget(k2)),
-						),
-					),
-					container.Right(
-						container.SplitHorizontal(
-							container.Top(container.PlaceWidget(encoder3)),
-							container.Bottom(container.PlaceWidget(k3)),
-						),
-					),
-				),
-			),
-			container.SplitPercent(33),
-		),
-	)
+	c, err := newGui(t, e1, e2, e3, k1, k2, k3)
 	if err != nil {
 		panic(err)
 	}
