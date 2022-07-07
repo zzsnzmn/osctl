@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"time"
@@ -118,20 +119,23 @@ func newGui(t *tcell.Terminal, e1, e2, e3 *encoder.Encoder, k1, k2, k3 *button.B
 }
 
 func main() {
+
+	// set up flags
+	// TODO: read arg here to set range
+	// TODO: read arg here to set osc msg type
+	// TODO: read arg here to set osc msg route
+	oscAddrFlag := flag.String("addr", "127.0.0.1", "the ip or hostname to send OSC messages to")
+	oscPortFlag := flag.Int("port", 10111, "the port to send OSC messages to")
+	flag.Parse()
+
 	t, err := tcell.New()
 	if err != nil {
 		panic(err)
 	}
 	defer t.Close()
-	// TODO: read arg here to set hostname
-	// TODO: read arg here to set port
-	// TODO: read arg here to set range
-	// TODO: read arg here to set osc msg type
-	// TODO: read arg here to set osc msg route
 
-	oscPort := 10111
-	//oscAddr := "localhost"
-	oscAddr := "192.168.86.45"
+	oscAddr := *oscAddrFlag
+	oscPort := *oscPortFlag
 	ctx, cancel := context.WithCancel(context.Background())
 	e1 := enc(oscAddr, "/remote/enc/1", oscPort, "E1")
 	e2 := enc(oscAddr, "/remote/enc/2", oscPort, "E2")
