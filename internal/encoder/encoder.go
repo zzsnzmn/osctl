@@ -49,6 +49,10 @@ type Encoder struct {
 	total int
 	// angle is the value that represents the angle in radians (-360, 360)
 	angle int
+
+	// dx is used to change the direction mouse events are interpreted
+	dx int
+
 	// mu protects the Encoder.
 	mu sync.Mutex
 
@@ -74,6 +78,7 @@ func New(opts ...Option) (*Encoder, error) {
 		oscPort:  opt.oscPort,
 		oscAddr:  opt.oscAddr,
 		angle:    opt.startAngle,
+		dx: -1,
 		opts:     opt,
 	}, nil
 }
@@ -244,12 +249,12 @@ func (d *Encoder) Mouse(m *terminalapi.Mouse, _ *widgetapi.EventMeta) error {
 	msg := osc.NewMessage(d.oscRoute)
 
 	if m.Button == mouse.ButtonWheelDown {
-		d.current = (d.current + 1) % d.total
-		msg.Append(int32(1))
+		d.current = (d.current + d.dx) % d.total
+		msg.Append(int32(-1*d.dx))
 	}
 	if m.Button == mouse.ButtonWheelUp {
-		d.current = (d.current - 1) % d.total
-		msg.Append(int32(-1))
+		d.current = (d.current - d.dx) % d.total
+		msg.Append(int32(d.dx))
 	}
 	if d.current < 0 {
 		d.current = 100
