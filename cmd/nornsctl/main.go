@@ -57,6 +57,7 @@ func enc(oscAddr string, oscRoute string, oscPort int, encoderLabel string) *enc
 	e, err := encoder.New(
 		encoder.CellOpts(cell.FgColor(cell.ColorGreen)),
 		encoder.Label(encoderLabel, cell.FgColor(cell.ColorGreen)),
+		encoder.HideTextProgress(),
 		encoder.OscRoute(oscRoute, oscAddr, oscPort),
 	)
 	if err != nil {

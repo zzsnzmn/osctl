@@ -160,14 +160,6 @@ func (d *Encoder) Draw(cvs *canvas.Canvas, _ *widgetapi.Meta) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	// TODO: make this aware of the angle
-	startA, endA := startEndAngles(d.current, d.total, d.angle, d.opts.direction)
-
-	if startA == endA {
-		// No progress recorded, so nothing to do.
-		return nil
-	}
-
 	var encoderAr, labelAr image.Rectangle
 	if len(d.opts.label) > 0 {
 		d, l, err := encoderAndLabel(cvs.Area())
@@ -195,7 +187,17 @@ func (d *Encoder) Draw(cvs *canvas.Canvas, _ *widgetapi.Meta) error {
 	mid, r := midAndRadius(bc.Area())
 	if err := draw.BrailleCircle(bc, mid, r,
 		draw.BrailleCircleFilled(),
-		draw.BrailleCircleArcOnly(startA, endA),
+		draw.BrailleCircleCellOpts(d.opts.cellOpts...),
+	); err != nil {
+		return fmt.Errorf("failed to draw the outer circle: %v", err)
+	}
+
+
+	angle := int(float64(d.current)*float64(3.6))
+	if err := draw.BrailleCircle(bc, mid, r,
+		draw.BrailleCircleFilled(),
+		draw.BrailleCircleArcOnly(angle, (angle+25)%360),
+		draw.BrailleCircleClearPixels(),
 		draw.BrailleCircleCellOpts(d.opts.cellOpts...),
 	); err != nil {
 		return fmt.Errorf("failed to draw the outer circle: %v", err)
@@ -248,6 +250,9 @@ func (d *Encoder) Mouse(m *terminalapi.Mouse, _ *widgetapi.EventMeta) error {
 	if m.Button == mouse.ButtonWheelUp {
 		d.current = (d.current - 1) % d.total
 		msg.Append(int32(-1))
+	}
+	if d.current < 0 {
+		d.current = 100
 	}
 
 	err := client.Send(msg)
